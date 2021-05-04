@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">CleanArchitecture</string>
+    <string name="calculate_btn">calculate</string>
+
+    <string name="state_free">Free</string>
+    <string name="state_calculating">Calculating</string>
+    <string name="state_result">Result</string>
+
+    <string name="add_person_btn">Add person</string>
+
+    <string name="persons_widget_label">Persons Widget</string>
+    <string name="min_rating">Min rating</string>
+</resources>
