@@ -8,7 +8,8 @@ import kotlinx.coroutines.flow.Flow
 
 class PersonsUseCaseImpl(
     private val personsRepository: PersonsRepository,
-    private val personsCloudRepository: PersonsCloudRepository
+    private val personsCloudRepository: PersonsCloudRepository,
+    private val personWorkExecutor: PersonWorkExecutor
 ) : PersonsUseCase, EditPersonUseCase {
     override fun observePersons(): Flow<List<Person>> =
         personsRepository.observePersons()
@@ -23,13 +24,18 @@ class PersonsUseCaseImpl(
         return personsCloudRepository.addPerson(person)
     }
 
+    override fun addPerson(name: String, rating: Float) {
+
+        personWorkExecutor.addPerson(Person(name, rating))
+    }
+
     override suspend fun deletePerson(person: Person) {
         personsRepository.deletePerson(person)
     }
 
     override suspend fun getPersons(): Throwable? {
         delay(1000)
-        when(val getPersonsResult = personsCloudRepository.getPersons()) {
+        when (val getPersonsResult = personsCloudRepository.getPersons()) {
             is NetworkResult.Error -> return getPersonsResult.exception
             is NetworkResult.Success -> {
                 personsRepository.updatePersons(getPersonsResult.data)
