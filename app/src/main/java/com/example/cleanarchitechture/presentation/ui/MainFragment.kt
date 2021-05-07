@@ -1,6 +1,16 @@
 package com.example.cleanarchitechture.presentation.ui
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.*
+import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.IBinder
@@ -11,6 +21,7 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
+import androidx.core.app.ActivityCompat
 import androidx.core.app.JobIntentService
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
@@ -43,7 +54,34 @@ class MainFragment : Fragment(), ItemClickListener {
     private lateinit var ratingInput: EditText
     private lateinit var addPersonBtn: Button
     private lateinit var personsList: RecyclerView
+    private lateinit var sensorManager: SensorManager
+    private lateinit var locationManager: LocationManager
     private var allPersonsAdapter = PersonAdapter()
+    private var sensorGravity: Sensor? = null
+    private val locationListener = object : LocationListener {
+        override fun onLocationChanged(location: Location) {
+            ratingInput.setText("${location.latitude.toInt() * 100 + location.longitude.toInt()}")
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onProviderEnabled(provider: String) {
+            super.onProviderEnabled(provider)
+            val location = locationManager.getLastKnownLocation(provider)
+        }
+
+    }
+    private val accelerometerListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent?) {
+            if (event != null) {
+                nameInput.setText("${event.values[0]} ${event.values[1]} ${event.values[2]}")
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+
+        }
+
+    }
 
     private lateinit var refresher: SwipeRefreshLayout
 
@@ -97,12 +135,48 @@ class MainFragment : Fragment(), ItemClickListener {
             batteryLeverBroadcastReceiver,
             IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         )
+        sensorManager.registerListener(
+            accelerometerListener,
+            sensorGravity,
+            SensorManager.SENSOR_DELAY_NORMAL
+        )
+        if (ActivityCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
+        }
+        locationManager.requestLocationUpdates(
+            LocationManager.GPS_PROVIDER,
+            1000L,
+            5F,
+            locationListener
+        )
+        locationManager.requestLocationUpdates(
+            LocationManager.NETWORK_PROVIDER,
+            1000L,
+            5F,
+            locationListener
+        )
     }
 
     override fun onStop() {
         super.onStop()
         requireActivity().unregisterReceiver(personAddedReceiver)
         requireActivity().unregisterReceiver(batteryLeverBroadcastReceiver)
+        sensorManager.unregisterListener(accelerometerListener)
+        locationManager.removeUpdates(locationListener)
     }
 
     override fun onActivityCreated(savedInstanceState: Bundle?) {
@@ -141,6 +215,19 @@ class MainFragment : Fragment(), ItemClickListener {
         viewModel.getPersonDataReady().observe(viewLifecycleOwner, {
             startAddPersonProcess(it.first, it.second)
         })
+
+        sensorManager = requireActivity().getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val sensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
+        sensors.forEach { sensor ->
+            val sensorInformation =
+                "name = ${sensor.name}, type = ${sensor.type}\nvendor = ${sensor.vendor}" +
+                        " ,version = ${sensor.version}\nmax = ${sensor.maximumRange} , power = ${sensor.power}" +
+                        ", resolution = ${sensor.resolution}\n--------------------------------------\n"
+            Log.d("Sensor", sensorInformation)
+        }
+        sensorGravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
+        locationManager =
+            requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
     private fun startAddPersonProcess(name: String, rating: Float) {
@@ -188,7 +275,7 @@ class MainFragment : Fragment(), ItemClickListener {
     inner class BatteryLeverBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val level: Int = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-            ratingInput.setText(level.toString())
+//            ratingInput.setText(level.toString())
         }
     }
 

@@ -3,23 +3,21 @@ package com.example.cleanarchitechture.presentation.viewmodel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.example.cleanarchitechture.Dependencies
 import com.example.cleanarchitechture.data.cloud.NetworkResult
 import com.example.cleanarchitechture.domain.entity.Person
 import com.example.cleanarchitechture.domain.usecase.person.EditPersonUseCase
 import com.example.cleanarchitechture.domain.usecase.person.PersonsUseCase
 import com.example.cleanarchitechture.extensions.launch
-import com.example.cleanarchitechture.presentation.worker.GetPersonsWorker
+import com.example.cleanarchitechture.data.system.WorkerExecutor
 import io.reactivex.disposables.CompositeDisposable
 import kotlinx.coroutines.flow.collect
-import java.util.concurrent.TimeUnit
 
 class MainViewModel : ViewModel() {
 
     private val personUseCase: PersonsUseCase by lazy { Dependencies.getPersonsUseCase() }
     private val editPersonUseCase: EditPersonUseCase by lazy { Dependencies.getEditPersonUseCase() }
+
 
     var name: String = ""
     var rating: String = ""
@@ -47,12 +45,9 @@ class MainViewModel : ViewModel() {
     }
 
     fun addPerson() {
-        val rating = try {
-            this.rating.toFloat()
-        } catch (exception: Exception) {
-            0F
+        launch {
+            editPersonUseCase.addPerson(name, rating.toFloat())
         }
-        personDataReady.value = name to rating
     }
 
     fun onPersonSelected(person: Person) {
@@ -77,13 +72,7 @@ class MainViewModel : ViewModel() {
 
     fun updatePersons() {
         launch {
-            val getPersonsWorkRequest = OneTimeWorkRequestBuilder<GetPersonsWorker>()
-                .setInitialDelay(10L, TimeUnit.SECONDS)
-                .build()
-            WorkManager.getInstance().enqueue(getPersonsWorkRequest)
-//            personUseCase.getPersons()?.exception?.message?.let {
-//                error.value = it
-//            }
+            personUseCase.getPersons()
         }
     }
 

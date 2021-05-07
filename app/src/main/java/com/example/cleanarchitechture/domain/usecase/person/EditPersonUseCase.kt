@@ -5,5 +5,6 @@ import com.example.cleanarchitechture.domain.entity.Person
 
 interface EditPersonUseCase {
     suspend fun addPerson(person: Person): NetworkResult<Person>
+    fun addPerson(name : String, rating : Float)
     suspend fun deletePerson(person: Person)
 }
