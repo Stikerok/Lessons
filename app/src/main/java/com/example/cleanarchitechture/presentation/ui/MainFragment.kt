@@ -2,6 +2,7 @@ package com.example.cleanarchitechture.presentation.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.*
 import android.content.pm.PackageManager
 import android.hardware.Sensor
@@ -58,6 +59,7 @@ class MainFragment : Fragment(), ItemClickListener {
     private lateinit var locationManager: LocationManager
     private var allPersonsAdapter = PersonAdapter()
     private var sensorGravity: Sensor? = null
+
     private val locationListener = object : LocationListener {
         override fun onLocationChanged(location: Location) {
             ratingInput.setText("${location.latitude.toInt() * 100 + location.longitude.toInt()}")
@@ -118,8 +120,8 @@ class MainFragment : Fragment(), ItemClickListener {
     private val personAddedReceiver = PersonAddedReceiver()
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+            inflater: LayoutInflater, container: ViewGroup?,
+            savedInstanceState: Bundle?
     ): View {
         return inflater.inflate(R.layout.main_fragment, container, false)
     }
@@ -128,47 +130,44 @@ class MainFragment : Fragment(), ItemClickListener {
         super.onStart()
 
         requireContext().registerReceiver(
-            personAddedReceiver,
-            IntentFilter(Constants.PERSON_ADDED_BROADCAST)
+                personAddedReceiver,
+                IntentFilter(Constants.PERSON_ADDED_BROADCAST)
         )
         requireContext().registerReceiver(
-            batteryLeverBroadcastReceiver,
-            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                batteryLeverBroadcastReceiver,
+                IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         )
         sensorManager.registerListener(
-            accelerometerListener,
-            sensorGravity,
-            SensorManager.SENSOR_DELAY_NORMAL
+                accelerometerListener,
+                sensorGravity,
+                SensorManager.SENSOR_DELAY_NORMAL
         )
         if (ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
+                        requireContext(),
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                        requireContext(),
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                ) != PackageManager.PERMISSION_GRANTED
         ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
+            requestPermissions(
+                    arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                    Constants.FINE_LOCATION_REQUEST_CODE)
+        } else {
+            checkLocation()
         }
-        locationManager.requestLocationUpdates(
-            LocationManager.GPS_PROVIDER,
-            1000L,
-            5F,
-            locationListener
-        )
-        locationManager.requestLocationUpdates(
-            LocationManager.NETWORK_PROVIDER,
-            1000L,
-            5F,
-            locationListener
-        )
+
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        when (requestCode) {
+            Constants.FINE_LOCATION_REQUEST_CODE -> {
+                if ((grantResults.isNotEmpty()) && (grantResults[0] == PackageManager.PERMISSION_GRANTED)) {
+                    checkLocation()
+                }
+                return
+            }
+        }
     }
 
     override fun onStop() {
@@ -192,15 +191,16 @@ class MainFragment : Fragment(), ItemClickListener {
             viewModel.updatePersons()
         }
 
+
         val observable = Observable.create<Unit> { emitter ->
             addPersonBtn.setOnClickListener {
                 emitter.onNext(Unit)
             }
         }
         val subscribe = observable
-            .subscribeOn(Schedulers.io())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { viewModel.addPerson() }
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe { viewModel.addPerson() }
         disposable.add(subscribe)
 
         viewModel.getPersons().observe(viewLifecycleOwner, {
@@ -220,14 +220,14 @@ class MainFragment : Fragment(), ItemClickListener {
         val sensors = sensorManager.getSensorList(Sensor.TYPE_ALL)
         sensors.forEach { sensor ->
             val sensorInformation =
-                "name = ${sensor.name}, type = ${sensor.type}\nvendor = ${sensor.vendor}" +
-                        " ,version = ${sensor.version}\nmax = ${sensor.maximumRange} , power = ${sensor.power}" +
-                        ", resolution = ${sensor.resolution}\n--------------------------------------\n"
+                    "name = ${sensor.name}, type = ${sensor.type}\nvendor = ${sensor.vendor}" +
+                            " ,version = ${sensor.version}\nmax = ${sensor.maximumRange} , power = ${sensor.power}" +
+                            ", resolution = ${sensor.resolution}\n--------------------------------------\n"
             Log.d("Sensor", sensorInformation)
         }
         sensorGravity = sensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY)
         locationManager =
-            requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                requireActivity().getSystemService(Context.LOCATION_SERVICE) as LocationManager
     }
 
     private fun startAddPersonProcess(name: String, rating: Float) {
@@ -235,14 +235,14 @@ class MainFragment : Fragment(), ItemClickListener {
             addPersonService?.startAddPersonProcess(name, rating)
         } else {
             val addPersonServiceIntent =
-                Intent(requireContext(), AddPersonService::class.java).apply {
-                    this.putExtra(Constants.NAME, name)
-                    this.putExtra(Constants.RATING, rating)
-                }
+                    Intent(requireContext(), AddPersonService::class.java).apply {
+                        this.putExtra(Constants.NAME, name)
+                        this.putExtra(Constants.RATING, rating)
+                    }
             requireActivity().bindService(
-                addPersonServiceIntent,
-                connection,
-                Context.BIND_AUTO_CREATE
+                    addPersonServiceIntent,
+                    connection,
+                    Context.BIND_AUTO_CREATE
             )
             newPersonData = Pair(name, rating)
         }
@@ -272,6 +272,23 @@ class MainFragment : Fragment(), ItemClickListener {
         allPersonsAdapter.setListener(null)
     }
 
+    @SuppressLint("MissingPermission")
+    fun checkLocation() {
+        locationManager.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER,
+                1000L,
+                5F,
+                locationListener
+        )
+        locationManager.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER,
+                1000L,
+                5F,
+                locationListener
+        )
+    }
+
+
     inner class BatteryLeverBroadcastReceiver : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val level: Int = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
@@ -288,10 +305,10 @@ class MainFragment : Fragment(), ItemClickListener {
                     it.putExtra(Constants.ACTION_REQUIRED, true)
 
                     JobIntentService.enqueueWork(
-                        context,
-                        GetPersonsService::class.java,
-                        Constants.GET_PERSONS_JOB_ID,
-                        it
+                            context,
+                            GetPersonsService::class.java,
+                            Constants.GET_PERSONS_JOB_ID,
+                            it
                     )
                 }
             }
