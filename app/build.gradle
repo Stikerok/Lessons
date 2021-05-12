@@ -67,4 +67,12 @@ dependencies {
     implementation "androidx.work:work-runtime-ktx:2.5.0"
     implementation "android.arch.work:work-runtime:1.0.1"
 
+    // koin version
+    def koin_version = '1.0.2'
+
+    // Koin for Android
+    implementation "org.koin:koin-android:$koin_version"
+    // or Koin for view model features
+    implementation "org.koin:koin-android-viewmodel:$koin_version"
+
 }
